@@ -131,21 +131,24 @@
   /* ---- preview ---- */
   .preview-col { position: sticky; top: 24px; min-width: 0; }
   .stage {
-    position: relative; aspect-ratio: 16 / 9; overflow: hidden;
+    position: relative; height: 240px; overflow: hidden;
     border: 1px solid var(--line); border-radius: var(--radius);
     background-color: var(--surface);
     background-image: radial-gradient(var(--line) 1px, transparent 1px);
     background-size: 16px 16px;
   }
   .stage iframe {
-    position: absolute; top: 0; left: 0;
-    width: 1920px; height: 1080px; border: 0;
+    position: absolute; top: 0; left: 0; border: 0;
     transform-origin: 0 0; pointer-events: none;
   }
   .stage-label {
-    position: absolute; top: 12px; left: 14px; z-index: 1;
+    display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
     font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint);
   }
+  .stage-label .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--faint); }
+  .stage-label.live { color: var(--muted); }
+  .stage-label.live .dot { background: #ef4444; animation: pulse 1.6s infinite; }
+  @keyframes pulse { 50% { opacity: .3; } }
 
   .url {
     display: flex; align-items: center; gap: 8px; margin-top: 16px;
@@ -241,8 +244,8 @@
     </form>
 
     <section class="preview-col">
+      <div class="stage-label" id="stageLabel"><span class="dot"></span><span id="stageText">Prévia</span></div>
       <div class="stage" id="stage">
-        <span class="stage-label" id="stageLabel">Prévia</span>
         <iframe id="preview" title="Prévia do overlay"></iframe>
       </div>
 
@@ -322,18 +325,30 @@
     $('copy').disabled = !hasChannel;
     $('hint').textContent = hasChannel ? '' : 'Digite o canal para gerar a URL.';
 
+    // com canal: prévia ao vivo do canal; sem canal: música de exemplo
+    const channel = state.channel.trim();
+    $('stageLabel').classList.toggle('live', hasChannel);
+    $('stageText').textContent = hasChannel ? `Ao vivo · ${channel}` : 'Prévia · música de exemplo';
+    fitPreview();
+
     clearTimeout(previewTimer);
     previewTimer = setTimeout(() => {
-      // a prévia sempre usa a música de exemplo para mostrar o visual
-      const pv = new URLSearchParams(p); pv.set('demo', '1');
+      const pv = new URLSearchParams(p);
+      if (!hasChannel) pv.set('demo', '1');
       $('preview').src = `${base}?${pv}`;
-    }, 300);
+    }, 600);
   }
 
-  // escala o iframe 1920x1080 para caber no palco
-  new ResizeObserver(([entry]) => {
-    $('preview').style.transform = `scale(${entry.contentRect.width / 1920})`;
-  }).observe($('stage'));
+  // mostra o card em tamanho real; só reduz se o palco for mais estreito que o card
+  function fitPreview() {
+    const stage = $('stage'), frame = $('preview');
+    const needed = (Number(state.width) || 460) + 40;
+    const scale = Math.min(1, stage.clientWidth / needed);
+    frame.style.width = stage.clientWidth / scale + 'px';
+    frame.style.height = stage.clientHeight / scale + 'px';
+    frame.style.transform = `scale(${scale})`;
+  }
+  new ResizeObserver(fitPreview).observe($('stage'));
 
   $('copy').addEventListener('click', async () => {
     try { await navigator.clipboard.writeText($('url').textContent); } catch { return; }
