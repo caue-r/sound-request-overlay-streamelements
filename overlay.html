@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Now Playing – StreamElements Media Request</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --accent: #8b5cf6;
+    --bg: rgba(15, 15, 20, 0.82);
+    --text: #ffffff;
+    --muted: rgba(255, 255, 255, 0.65);
+    --width: 460px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: transparent; overflow: hidden; font-family: 'Inter', system-ui, sans-serif; }
+
+  #card {
+    position: absolute;
+    left: 20px; bottom: 20px;
+    width: var(--width);
+    display: flex; gap: 14px; align-items: center;
+    padding: 12px 16px 16px 12px;
+    background: var(--bg);
+    border-left: 4px solid var(--accent);
+    border-radius: 14px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+    color: var(--text);
+    transform: translateX(-120%);
+    opacity: 0;
+    transition: transform .6s cubic-bezier(.2, .9, .3, 1.2), opacity .4s ease;
+  }
+  #card.show { transform: translateX(0); opacity: 1; }
+  body.pos-right #card { left: auto; right: 20px; transform: translateX(120%); }
+  body.pos-right #card.show { transform: translateX(0); }
+  body.pos-top #card { bottom: auto; top: 20px; }
+
+  #thumb {
+    flex: 0 0 auto;
+    width: 96px; height: 54px;
+    border-radius: 8px;
+    object-fit: cover;
+    background: #222;
+  }
+  #info { flex: 1 1 auto; min-width: 0; }
+  #label {
+    font-size: 11px; font-weight: 800; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--accent);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .eq { display: inline-flex; gap: 2px; align-items: flex-end; height: 10px; }
+  .eq i { width: 3px; background: var(--accent); animation: eq 1s infinite ease-in-out; }
+  .eq i:nth-child(2) { animation-delay: .2s; }
+  .eq i:nth-child(3) { animation-delay: .4s; }
+  @keyframes eq { 0%, 100% { height: 3px; } 50% { height: 10px; } }
+
+  .marquee { overflow: hidden; white-space: nowrap; }
+  .marquee span { display: inline-block; }
+  .marquee.scroll span { animation: marquee var(--dur, 10s) linear infinite; padding-right: 60px; }
+  @keyframes marquee { 0%, 15% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+
+  #title { font-size: 17px; font-weight: 800; margin-top: 2px; }
+  #meta { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  #meta b { color: var(--text); font-weight: 600; }
+  #next { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+  #progress {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    height: 4px; border-radius: 0 0 14px 0; overflow: hidden;
+    background: rgba(255, 255, 255, 0.08);
+  }
+  #bar { height: 100%; width: 0; background: var(--accent); transition: width 1s linear; }
+
+  #error {
+    position: absolute; left: 20px; top: 20px;
+    padding: 10px 14px; border-radius: 8px;
+    background: #b91c1c; color: #fff; font-size: 14px;
+    display: none;
+  }
+</style>
+</head>
+<body>
+  <div id="card">
+    <img id="thumb" alt="">
+    <div id="info">
+      <div id="label"><span class="eq"><i></i><i></i><i></i></span><span id="labelText">Tocando agora</span></div>
+      <div id="title" class="marquee"><span></span></div>
+      <div id="meta"></div>
+      <div id="next" class="marquee"><span></span></div>
+    </div>
+    <div id="progress"><div id="bar"></div></div>
+  </div>
+  <div id="error"></div>
+
+<script>
+(() => {
+  const API = 'https://api.streamelements.com/kappa/v2';
+  const params = new URLSearchParams(location.search);
+  const opt = {
+    channel:   params.get('channel') || '',
+    interval:  Math.max(2, Number(params.get('interval')) || 5) * 1000,
+    accent:    params.get('accent'),
+    width:     params.get('width'),
+    position:  params.get('position') || 'bottom-left',
+    label:     params.get('label') || 'Tocando agora',
+    requester: params.get('requester') !== '0',
+    next:      params.get('next') !== '0',
+    progress:  params.get('progress') !== '0',
+    // segundos visível ao trocar de música; 0 = sempre visível
+    showFor:   Number(params.get('showFor')) || 0,
+  };
+
+  const $ = (id) => document.getElementById(id);
+  const card = $('card');
+
+  if (opt.accent) document.documentElement.style.setProperty('--accent', '#' + opt.accent.replace('#', ''));
+  if (opt.width) document.documentElement.style.setProperty('--width', Number(opt.width) + 'px');
+  opt.position.split('-').forEach((p) => document.body.classList.add('pos-' + p));
+  $('labelText').textContent = opt.label;
+  if (!opt.progress) $('progress').style.display = 'none';
+
+  function showError(msg) {
+    $('error').textContent = msg;
+    $('error').style.display = msg ? 'block' : 'none';
+  }
+
+  async function getJSON(url) {
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  }
+
+  // Aceita tanto o ID do canal (24 hex) quanto o nome de usuário
+  async function resolveChannelId(channel) {
+    if (/^[a-f0-9]{24}$/i.test(channel)) return channel;
+    const data = await getJSON(`${API}/channels/${encodeURIComponent(channel)}`);
+    if (!data || !data._id) throw new Error('canal não encontrado');
+    return data._id;
+  }
+
+  function setMarquee(el, text) {
+    const span = el.querySelector('span');
+    el.classList.remove('scroll');
+    span.textContent = text;
+    requestAnimationFrame(() => {
+      if (span.scrollWidth > el.clientWidth) {
+        span.textContent = text + '   •   ' + text;
+        el.style.setProperty('--dur', Math.max(8, text.length * 0.35) + 's');
+        el.classList.add('scroll');
+      }
+    });
+  }
+
+  function fmt(sec) {
+    sec = Math.max(0, Math.floor(sec));
+    return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+  }
+
+  let current = null;     // id da música atual
+  let startedAt = 0;      // quando o overlay viu a música pela primeira vez
+  let duration = 0;
+  let hideTimer = null;
+
+  function render(song, upcoming) {
+    const id = song && (song._id || song.videoId);
+
+    if (!song) {
+      current = null;
+      card.classList.remove('show');
+      return;
+    }
+
+    if (id !== current) {
+      const isFirst = current === null;
+      current = id;
+      startedAt = Date.now();
+      duration = song.end && song.start != null ? song.end - song.start : (song.duration || 0);
+
+      const swap = () => {
+        $('thumb').src = song.videoId ? `https://i.ytimg.com/vi/${song.videoId}/mqdefault.jpg` : '';
+        setMarquee($('title'), song.title || 'Sem título');
+        const parts = [];
+        if (song.channel) parts.push(song.channel);
+        if (opt.requester && song.user && song.user.username) parts.push(`pedido por <b>${escapeHtml(song.user.username)}</b>`);
+        $('meta').innerHTML = parts.map((p, i) => i === 0 ? escapeHtml(p) : p).join(' · ');
+        $('bar').style.transition = 'none';
+        $('bar').style.width = '0';
+        card.classList.add('show');
+
+        clearTimeout(hideTimer);
+        if (opt.showFor > 0) hideTimer = setTimeout(() => card.classList.remove('show'), opt.showFor * 1000);
+      };
+
+      if (isFirst || !card.classList.contains('show')) swap();
+      else { card.classList.remove('show'); setTimeout(swap, 600); }
+    }
+
+    const nextEl = $('next');
+    if (opt.next && upcoming) {
+      nextEl.style.display = '';
+      setMarquee(nextEl, `A seguir: ${upcoming.title}`);
+    } else {
+      nextEl.style.display = 'none';
+    }
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  // Progresso estimado: a API pública não informa a posição do player,
+  // então contamos a partir do momento em que a música apareceu.
+  setInterval(() => {
+    if (!current || !duration || !opt.progress) return;
+    const elapsed = (Date.now() - startedAt) / 1000;
+    const bar = $('bar');
+    bar.style.transition = 'width 1s linear';
+    bar.style.width = Math.min(100, (elapsed / duration) * 100) + '%';
+    bar.title = `${fmt(elapsed)} / ${fmt(duration)}`;
+  }, 1000);
+
+  let lastNextKey = '';
+  async function poll(channelId) {
+    try {
+      const song = await getJSON(`${API}/songrequest/${channelId}/playing`);
+      let upcoming = null;
+      if (opt.next && song) {
+        const queue = await getJSON(`${API}/songrequest/${channelId}/queue/public`).catch(() => []);
+        upcoming = Array.isArray(queue) && queue.length ? queue[0] : null;
+      }
+      const nextKey = upcoming ? (upcoming._id || upcoming.title) : '';
+      const songKey = song ? (song._id || song.videoId) : null;
+      if (songKey !== current || nextKey !== lastNextKey) {
+        lastNextKey = nextKey;
+        render(song, upcoming);
+      }
+      showError('');
+    } catch (e) {
+      console.error(e);
+      showError('Erro ao consultar StreamElements: ' + e.message);
+    }
+  }
+
+  async function start() {
+    if (!opt.channel) {
+      showError('Informe o canal na URL: overlay.html?channel=SEU_CANAL');
+      return;
+    }
+    let channelId;
+    try {
+      channelId = await resolveChannelId(opt.channel);
+    } catch (e) {
+      showError(`Canal "${opt.channel}" não encontrado no StreamElements (${e.message})`);
+      setTimeout(start, 15000);
+      return;
+    }
+    showError('');
+    poll(channelId);
+    setInterval(() => poll(channelId), opt.interval);
+  }
+
+  // Modo de teste: overlay.html?demo=1
+  if (params.get('demo')) {
+    render({ videoId: 'dQw4w9WgXcQ', title: 'Rick Astley - Never Gonna Give You Up (Official Music Video)', channel: 'Rick Astley', duration: 213, user: { username: 'viewer123' } },
+           { title: 'Daft Punk - One More Time' });
+    return;
+  }
+  start();
+})();
+</script>
+</body>
+</html>
