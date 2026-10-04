@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Now Playing · Overlay</title>
+<title>Sound Request Overlay</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -44,13 +44,11 @@
   header { display: flex; align-items: center; gap: 12px; margin-bottom: 56px; }
   header img { width: 28px; height: 28px; }
   header .name { font-weight: 600; letter-spacing: -0.01em; }
-  header .tag { color: var(--faint); font-size: 13px; margin-left: auto; }
 
   h1 {
     font-size: clamp(28px, 4vw, 40px); font-weight: 500;
-    letter-spacing: -0.035em; line-height: 1.1; margin: 0 0 10px;
+    letter-spacing: -0.035em; line-height: 1.1; margin: 0 0 48px;
   }
-  .lede { color: var(--muted); margin: 0 0 48px; max-width: 46ch; font-size: 15px; }
 
   .layout { display: grid; grid-template-columns: 340px 1fr; gap: 48px; align-items: start; }
   @media (max-width: 880px) { .layout { grid-template-columns: 1fr; gap: 32px; } }
@@ -191,11 +189,9 @@
   <header>
     <img src="favicon.svg" alt="">
     <span class="name">Now Playing</span>
-    <span class="tag">StreamElements · OBS</span>
   </header>
 
-  <h1>Overlay da música atual.</h1>
-  <p class="lede">Mostra no OBS o que está tocando no Media Request do StreamElements, sem login e sem token.</p>
+  <h1>Sound Request Overlay</h1>
 
   <div class="layout">
     <form id="form" autocomplete="off" onsubmit="return false">
