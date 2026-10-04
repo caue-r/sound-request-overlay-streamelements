@@ -3,101 +3,345 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Gerador do overlay Now Playing</title>
+<title>Now Playing · Overlay</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400&display=swap" rel="stylesheet">
 <style>
-  :root { --accent: #8b5cf6; --bg: #0f0f14; --panel: #1a1a22; --text: #eee; --muted: #999; }
+  :root {
+    --bg: #111111;
+    --surface: #1a1a1a;
+    --line: #2a2a2a;
+    --line-strong: #3a3a3a;
+    --text: #e7e6e5;
+    --muted: #8a8987;
+    --faint: #5c5b5a;
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f4f3f2;
+      --surface: #ffffff;
+      --line: #e3e2e0;
+      --line-strong: #cfcecc;
+      --text: #1a1a1a;
+      --muted: #6b6a68;
+      --faint: #a3a2a0;
+    }
+  }
+
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; }
-  main { max-width: 760px; margin: 0 auto; padding: 32px 16px; }
-  h1 { margin: 0 0 4px; }
-  p.sub { color: var(--muted); margin: 0 0 24px; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
-  label { display: flex; flex-direction: column; gap: 6px; font-size: 14px; color: var(--muted); }
-  label.check { flex-direction: row; align-items: center; gap: 8px; color: var(--text); }
-  input, select { padding: 9px 10px; border-radius: 8px; border: 1px solid #333; background: var(--panel); color: var(--text); font-size: 15px; }
-  input[type=color] { padding: 2px; height: 40px; }
-  .out { margin-top: 24px; display: flex; gap: 8px; }
-  .out input { flex: 1; font-family: monospace; font-size: 13px; }
-  button { padding: 9px 16px; border: 0; border-radius: 8px; background: var(--accent); color: #fff; font-weight: 600; cursor: pointer; }
-  iframe { margin-top: 20px; width: 100%; height: 220px; border: 1px dashed #333; border-radius: 10px;
-           background: repeating-conic-gradient(#1b1b1b 0 25%, #222 0 50%) 0 0 / 20px 20px; }
-  ol { color: var(--muted); line-height: 1.7; padding-left: 20px; }
-  code { background: var(--panel); padding: 1px 6px; border-radius: 4px; }
+  html { -webkit-font-smoothing: antialiased; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.5 'Geist', system-ui, sans-serif;
+  }
+  ::selection { background: var(--text); color: var(--bg); }
+
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 24px 64px; }
+
+  header { display: flex; align-items: center; gap: 12px; margin-bottom: 56px; }
+  header img { width: 28px; height: 28px; }
+  header .name { font-weight: 600; letter-spacing: -0.01em; }
+  header .tag { color: var(--faint); font-size: 13px; margin-left: auto; }
+
+  h1 {
+    font-size: clamp(28px, 4vw, 40px); font-weight: 500;
+    letter-spacing: -0.035em; line-height: 1.1; margin: 0 0 10px;
+  }
+  .lede { color: var(--muted); margin: 0 0 48px; max-width: 46ch; font-size: 15px; }
+
+  .layout { display: grid; grid-template-columns: 340px 1fr; gap: 48px; align-items: start; }
+  @media (max-width: 880px) { .layout { grid-template-columns: 1fr; gap: 32px; } }
+
+  /* ---- form ---- */
+  .group { padding: 20px 0; border-top: 1px solid var(--line); }
+  .group:first-child { border-top: 0; padding-top: 0; }
+  .group-title {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--faint); margin-bottom: 14px;
+  }
+  .field { display: block; margin-bottom: 14px; }
+  .field:last-child { margin-bottom: 0; }
+  .field > span { display: block; color: var(--muted); font-size: 13px; margin-bottom: 6px; }
+
+  input[type=text], input[type=number] {
+    width: 100%; padding: 9px 12px;
+    background: var(--surface); color: var(--text);
+    border: 1px solid var(--line); border-radius: 8px;
+    font: inherit; outline: none; transition: border-color .15s;
+  }
+  input[type=text]:focus, input[type=number]:focus { border-color: var(--muted); }
+  input::placeholder { color: var(--faint); }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  /* posição: mini tela com 4 cantos */
+  .corners {
+    position: relative; aspect-ratio: 16 / 9; width: 100%; max-width: 260px;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--surface);
+  }
+  .corners button {
+    position: absolute; width: 34%; height: 22%;
+    border: 1px dashed var(--line-strong); border-radius: 5px;
+    background: transparent; cursor: pointer; transition: all .15s;
+  }
+  .corners button:hover { border-color: var(--muted); }
+  .corners button[aria-pressed=true] { background: var(--text); border: 1px solid var(--text); }
+  .corners [data-pos=top-left]     { top: 8%;  left: 5%; }
+  .corners [data-pos=top-right]    { top: 8%;  right: 5%; }
+  .corners [data-pos=bottom-left]  { bottom: 8%; left: 5%; }
+  .corners [data-pos=bottom-right] { bottom: 8%; right: 5%; }
+
+  /* cores */
+  .swatches { display: flex; gap: 8px; align-items: center; }
+  .swatch {
+    width: 26px; height: 26px; border-radius: 50%; cursor: pointer;
+    border: 0; padding: 0; background: var(--c);
+    box-shadow: 0 0 0 1px var(--line);
+    transition: box-shadow .15s, transform .15s;
+  }
+  .swatch:hover { transform: scale(1.08); }
+  .swatch[aria-pressed=true] { box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px var(--text); }
+  .swatch.custom {
+    position: relative; overflow: hidden;
+    background: conic-gradient(#f87171, #fbbf24, #4ade80, #22d3ee, #818cf8, #e879f9, #f87171);
+  }
+  .swatch.custom input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+
+  /* toggles */
+  .toggle {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 6px 0; cursor: pointer; user-select: none;
+  }
+  .toggle input { position: absolute; opacity: 0; pointer-events: none; }
+  .switch {
+    width: 30px; height: 18px; border-radius: 99px; flex: none;
+    background: var(--line-strong); position: relative; transition: background .2s;
+  }
+  .switch::after {
+    content: ''; position: absolute; top: 2px; left: 2px;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--bg); transition: transform .2s;
+  }
+  .toggle input:checked + .switch { background: var(--text); }
+  .toggle input:checked + .switch::after { transform: translateX(12px); }
+  .toggle input:focus-visible + .switch { outline: 2px solid var(--muted); outline-offset: 2px; }
+
+  /* ---- preview ---- */
+  .preview-col { position: sticky; top: 24px; min-width: 0; }
+  .stage {
+    position: relative; aspect-ratio: 16 / 9; overflow: hidden;
+    border: 1px solid var(--line); border-radius: var(--radius);
+    background-color: var(--surface);
+    background-image: radial-gradient(var(--line) 1px, transparent 1px);
+    background-size: 16px 16px;
+  }
+  .stage iframe {
+    position: absolute; top: 0; left: 0;
+    width: 1920px; height: 1080px; border: 0;
+    transform-origin: 0 0; pointer-events: none;
+  }
+  .stage-label {
+    position: absolute; top: 12px; left: 14px; z-index: 1;
+    font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint);
+  }
+
+  .url {
+    display: flex; align-items: center; gap: 8px; margin-top: 16px;
+    padding: 6px 6px 6px 14px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  }
+  .url code {
+    flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font: 12.5px 'Geist Mono', ui-monospace, monospace; color: var(--muted);
+  }
+  .btn {
+    flex: none; padding: 8px 14px; border: 0; border-radius: 7px; cursor: pointer;
+    background: var(--text); color: var(--bg); font: 500 13px 'Geist', sans-serif;
+    transition: opacity .15s;
+  }
+  .btn:hover { opacity: .85; }
+  .btn:disabled { opacity: .35; cursor: not-allowed; }
+  .hint { color: var(--faint); font-size: 12.5px; margin-top: 10px; min-height: 1.5em; }
+
+  .steps {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;
+    margin-top: 40px; padding-top: 24px; border-top: 1px solid var(--line);
+    counter-reset: step;
+  }
+  @media (max-width: 600px) { .steps { grid-template-columns: 1fr; gap: 16px; } }
+  .steps div { color: var(--muted); font-size: 13px; counter-increment: step; }
+  .steps div::before {
+    content: counter(step, decimal-leading-zero);
+    display: block; font: 12px 'Geist Mono', monospace; color: var(--faint); margin-bottom: 6px;
+  }
+  .steps b { color: var(--text); font-weight: 500; }
+
+  footer { margin-top: 64px; color: var(--faint); font-size: 12.5px; }
+  footer a { color: var(--muted); text-decoration: none; border-bottom: 1px solid var(--line-strong); }
+  footer a:hover { color: var(--text); }
 </style>
 </head>
 <body>
-<main>
-  <h1>🎵 Now Playing para OBS</h1>
-  <p class="sub">Mostra a música que está tocando no Media Request do StreamElements.</p>
+<div class="wrap">
+  <header>
+    <img src="favicon.svg" alt="">
+    <span class="name">Now Playing</span>
+    <span class="tag">StreamElements · OBS</span>
+  </header>
 
-  <div class="grid">
-    <label>Canal (nome no StreamElements ou ID)<input id="channel" placeholder="ex: seucanal"></label>
-    <label>Posição
-      <select id="position">
-        <option value="bottom-left">Inferior esquerda</option>
-        <option value="bottom-right">Inferior direita</option>
-        <option value="top-left">Superior esquerda</option>
-        <option value="top-right">Superior direita</option>
-      </select>
-    </label>
-    <label>Cor de destaque<input id="accent" type="color" value="#8b5cf6"></label>
-    <label>Largura do card (px)<input id="width" type="number" value="460" min="280" max="1200"></label>
-    <label>Texto do título<input id="label" value="Tocando agora"></label>
-    <label>Exibir por (s) ao trocar · 0 = sempre<input id="showFor" type="number" value="0" min="0"></label>
-    <label class="check"><input id="requester" type="checkbox" checked> Mostrar quem pediu</label>
-    <label class="check"><input id="next" type="checkbox" checked> Mostrar próxima música</label>
-    <label class="check"><input id="progress" type="checkbox" checked> Barra de progresso (estimada)</label>
+  <h1>Overlay da música atual.</h1>
+  <p class="lede">Mostra no OBS o que está tocando no Media Request do StreamElements, sem login e sem token.</p>
+
+  <div class="layout">
+    <form id="form" autocomplete="off" onsubmit="return false">
+      <div class="group">
+        <label class="field">
+          <span>Canal</span>
+          <input type="text" id="channel" placeholder="nome no StreamElements ou ID" spellcheck="false">
+        </label>
+      </div>
+
+      <div class="group">
+        <div class="group-title">Aparência</div>
+        <div class="field">
+          <span>Posição</span>
+          <div class="corners" role="group" aria-label="Posição">
+            <button type="button" data-pos="top-left" aria-label="Superior esquerda"></button>
+            <button type="button" data-pos="top-right" aria-label="Superior direita"></button>
+            <button type="button" data-pos="bottom-left" aria-label="Inferior esquerda"></button>
+            <button type="button" data-pos="bottom-right" aria-label="Inferior direita"></button>
+          </div>
+        </div>
+        <div class="field">
+          <span>Cor de destaque</span>
+          <div class="swatches" id="swatches">
+            <button type="button" class="swatch" style="--c:#e7e6e5" data-color="#e7e6e5" aria-label="Off-white"></button>
+            <button type="button" class="swatch" style="--c:#8b5cf6" data-color="#8b5cf6" aria-label="Violeta"></button>
+            <button type="button" class="swatch" style="--c:#22c55e" data-color="#22c55e" aria-label="Verde"></button>
+            <button type="button" class="swatch" style="--c:#f97316" data-color="#f97316" aria-label="Laranja"></button>
+            <button type="button" class="swatch" style="--c:#ef4444" data-color="#ef4444" aria-label="Vermelho"></button>
+            <label class="swatch custom" aria-label="Cor personalizada"><input type="color" id="customColor"></label>
+          </div>
+        </div>
+        <div class="row">
+          <label class="field"><span>Largura (px)</span><input type="number" id="width" value="460" min="280" max="1200" step="10"></label>
+          <label class="field"><span>Exibir por (s)</span><input type="number" id="showFor" value="0" min="0" placeholder="0 = sempre"></label>
+        </div>
+        <label class="field"><span>Rótulo</span><input type="text" id="label" value="Tocando agora"></label>
+      </div>
+
+      <div class="group">
+        <div class="group-title">Conteúdo</div>
+        <label class="toggle">Quem pediu<input type="checkbox" id="requester" checked><span class="switch"></span></label>
+        <label class="toggle">Próxima da fila<input type="checkbox" id="next" checked><span class="switch"></span></label>
+        <label class="toggle">Barra de progresso<input type="checkbox" id="progress" checked><span class="switch"></span></label>
+      </div>
+    </form>
+
+    <section class="preview-col">
+      <div class="stage" id="stage">
+        <span class="stage-label" id="stageLabel">Prévia</span>
+        <iframe id="preview" title="Prévia do overlay"></iframe>
+      </div>
+
+      <div class="url">
+        <code id="url"></code>
+        <button type="button" class="btn" id="copy">Copiar</button>
+      </div>
+      <div class="hint" id="hint"></div>
+
+      <div class="steps">
+        <div>Adicione uma fonte <b>Navegador</b> no OBS.</div>
+        <div><b>Desmarque</b> “Arquivo local” e cole a URL.</div>
+        <div>Use <b>1920 × 1080</b> ou o tamanho da cena.</div>
+      </div>
+    </section>
   </div>
 
-  <div class="out">
-    <input id="url" readonly>
-    <button id="copy">Copiar</button>
-  </div>
-  <iframe id="preview" title="Prévia"></iframe>
+  <footer>
+    <a href="https://github.com/caue-r/sound-request-overlay-streamelements" target="_blank" rel="noopener">Código no GitHub</a>
+  </footer>
+</div>
 
-  <h3>Como usar no OBS</h3>
-  <ol>
-    <li>Adicione uma fonte <b>Navegador</b> (Browser Source).</li>
-    <li><b>Desmarque</b> "Arquivo local" e cole a URL acima.</li>
-    <li>Largura <code>1920</code>, altura <code>1080</code> (ou o tamanho da sua cena).</li>
-  </ol>
-</main>
 <script>
-  const ids = ['channel', 'position', 'accent', 'width', 'label', 'showFor', 'requester', 'next', 'progress'];
-  const el = Object.fromEntries(ids.map((id) => [id, document.getElementById(id)]));
+  const DEFAULTS = { channel: '', position: 'bottom-left', accent: '#8b5cf6', width: '460', label: 'Tocando agora',
+                     showFor: '0', requester: true, next: true, progress: true };
+  const $ = (id) => document.getElementById(id);
   const base = new URL('overlay.html', location.href).href;
 
-  try { const saved = JSON.parse(localStorage.getItem('np-config') || '{}');
-        for (const [k, v] of Object.entries(saved)) if (el[k]) el[k].type === 'checkbox' ? el[k].checked = v : el[k].value = v; } catch {}
+  let state = { ...DEFAULTS };
+  try { Object.assign(state, JSON.parse(localStorage.getItem('np-config') || '{}')); } catch {}
+
+  // ---- sincroniza estado -> controles ----
+  function paint() {
+    for (const k of ['channel', 'width', 'label', 'showFor']) $(k).value = state[k];
+    for (const k of ['requester', 'next', 'progress']) $(k).checked = state[k];
+    document.querySelectorAll('.corners button').forEach((b) =>
+      b.setAttribute('aria-pressed', b.dataset.pos === state.position));
+    let preset = false;
+    document.querySelectorAll('.swatch[data-color]').forEach((b) => {
+      const on = b.dataset.color === state.accent; preset ||= on;
+      b.setAttribute('aria-pressed', on);
+    });
+    const custom = document.querySelector('.swatch.custom');
+    custom.setAttribute('aria-pressed', !preset);
+    $('customColor').value = state.accent;
+  }
+
+  // ---- controles -> estado ----
+  for (const k of ['channel', 'width', 'label', 'showFor'])
+    $(k).addEventListener('input', (e) => { state[k] = e.target.value; update(); });
+  for (const k of ['requester', 'next', 'progress'])
+    $(k).addEventListener('change', (e) => { state[k] = e.target.checked; update(); });
+  document.querySelectorAll('.corners button').forEach((b) =>
+    b.addEventListener('click', () => { state.position = b.dataset.pos; paint(); update(); }));
+  document.querySelectorAll('.swatch[data-color]').forEach((b) =>
+    b.addEventListener('click', () => { state.accent = b.dataset.color; paint(); update(); }));
+  $('customColor').addEventListener('input', (e) => { state.accent = e.target.value; paint(); update(); });
+
+  function buildParams() {
+    const p = new URLSearchParams();
+    p.set('channel', state.channel.trim());
+    if (state.position !== DEFAULTS.position) p.set('position', state.position);
+    if (state.accent !== DEFAULTS.accent) p.set('accent', state.accent.slice(1));
+    if (state.width && state.width !== DEFAULTS.width) p.set('width', state.width);
+    if (state.label !== DEFAULTS.label) p.set('label', state.label);
+    if (Number(state.showFor) > 0) p.set('showFor', state.showFor);
+    for (const k of ['requester', 'next', 'progress']) if (!state[k]) p.set(k, '0');
+    return p;
+  }
 
   let previewTimer;
   function update() {
-    const p = new URLSearchParams();
-    p.set('channel', el.channel.value.trim());
-    if (el.position.value !== 'bottom-left') p.set('position', el.position.value);
-    if (el.accent.value !== '#8b5cf6') p.set('accent', el.accent.value.slice(1));
-    if (el.width.value !== '460') p.set('width', el.width.value);
-    if (el.label.value !== 'Tocando agora') p.set('label', el.label.value);
-    if (Number(el.showFor.value) > 0) p.set('showFor', el.showFor.value);
-    for (const k of ['requester', 'next', 'progress']) if (!el[k].checked) p.set(k, '0');
-    const url = `${base}?${p}`;
-    document.getElementById('url').value = url;
-
-    const cfg = {}; ids.forEach((k) => cfg[k] = el[k].type === 'checkbox' ? el[k].checked : el[k].value);
-    try { localStorage.setItem('np-config', JSON.stringify(cfg)); } catch {}
+    try { localStorage.setItem('np-config', JSON.stringify(state)); } catch {}
+    const p = buildParams();
+    const hasChannel = !!state.channel.trim();
+    $('url').textContent = `${base}?${p}`;
+    $('copy').disabled = !hasChannel;
+    $('hint').textContent = hasChannel ? '' : 'Digite o canal para gerar a URL.';
 
     clearTimeout(previewTimer);
     previewTimer = setTimeout(() => {
-      const pv = new URLSearchParams(p); if (!el.channel.value.trim()) pv.set('demo', '1');
-      document.getElementById('preview').src = `${base}?${pv}`;
-    }, 500);
+      // a prévia sempre usa a música de exemplo para mostrar o visual
+      const pv = new URLSearchParams(p); pv.set('demo', '1');
+      $('preview').src = `${base}?${pv}`;
+    }, 300);
   }
-  ids.forEach((id) => el[id].addEventListener('input', update));
-  document.getElementById('copy').onclick = () => {
-    navigator.clipboard.writeText(document.getElementById('url').value);
-    document.getElementById('copy').textContent = 'Copiado!';
-    setTimeout(() => document.getElementById('copy').textContent = 'Copiar', 1500);
-  };
+
+  // escala o iframe 1920x1080 para caber no palco
+  new ResizeObserver(([entry]) => {
+    $('preview').style.transform = `scale(${entry.contentRect.width / 1920})`;
+  }).observe($('stage'));
+
+  $('copy').addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText($('url').textContent); } catch { return; }
+    $('copy').textContent = 'Copiado';
+    setTimeout(() => $('copy').textContent = 'Copiar', 1400);
+  });
+
+  paint();
   update();
 </script>
 </body>
