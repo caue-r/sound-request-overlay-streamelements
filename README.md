@@ -23,6 +23,7 @@ Se o repositório estiver no GitHub Pages, a URL fica `https://<usuario>.github.
 | Parâmetro   | Padrão          | Descrição                                                          |
 |-------------|-----------------|--------------------------------------------------------------------|
 | `channel`   | (obrigatório)   | Nome do canal no StreamElements ou o ID (24 caracteres hex)        |
+| `theme`     | `classic`       | Estilo do card (veja abaixo)                                       |
 | `position`  | `bottom-left`   | `bottom-left`, `bottom-right`, `top-left`, `top-right`             |
 | `accent`    | `8b5cf6`        | Cor de destaque (hex sem `#`)                                      |
 | `width`     | `460`           | Largura do card em px                                              |
@@ -33,6 +34,17 @@ Se o repositório estiver no GitHub Pages, a URL fica `https://<usuario>.github.
 | `progress`  | `1`             | `0` esconde a barra de progresso                                   |
 | `interval`  | `5`             | Intervalo de consulta à API, em segundos (mínimo 2)                |
 | `demo`      | –               | `demo=1` mostra uma música fictícia para testar o visual           |
+
+## Estilos
+
+| `theme`   | Visual                                                              |
+|-----------|---------------------------------------------------------------------|
+| `classic` | Card escuro com borda colorida, miniatura e barra de progresso      |
+| `minimal` | Só texto com sombra, sem fundo nem capa                              |
+| `ambient` | A capa desfocada vira o fundo do card                                |
+| `vinyl`   | Capa recortada como um disco de vinil girando                        |
+| `pill`    | Compacto, numa linha só: capa redonda, título e quem pediu           |
+| `cover`   | Vertical, com a capa grande em cima (máx. 320px de largura)          |
 
 ## Observações
 
