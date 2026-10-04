@@ -91,6 +91,40 @@
   .corners [data-pos=bottom-left]  { bottom: 8%; left: 5%; }
   .corners [data-pos=bottom-right] { bottom: 8%; right: 5%; }
 
+  /* estilos */
+  .themes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .theme {
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    padding: 10px 6px 8px; cursor: pointer;
+    background: var(--surface); color: var(--muted);
+    border: 1px solid var(--line); border-radius: 8px;
+    font: 12px 'Geist', sans-serif; transition: border-color .15s, color .15s;
+  }
+  .theme:hover { border-color: var(--line-strong); }
+  .theme[aria-pressed=true] { border-color: var(--text); color: var(--text); }
+  .mini { height: 36px; width: 100%; display: flex; align-items: center; justify-content: center; }
+  .mini i { display: block; }
+  .m { display: flex; align-items: center; gap: 4px; padding: 4px 6px 4px 4px; border-radius: 4px; background: var(--line-strong); }
+  .m .a { width: 14px; height: 9px; border-radius: 2px; background: var(--muted); flex: none; }
+  .m .ls { display: flex; flex-direction: column; gap: 3px; }
+  .m .ls i { height: 3px; width: 24px; border-radius: 2px; background: var(--muted); }
+  .m .ls i + i { width: 16px; opacity: .5; }
+  .mini-classic .m { border-left: 2px solid var(--text); }
+  .mini-minimal .m { background: none; padding: 0; }
+  .mini-minimal .a { display: none; }
+  .mini-minimal .ls i { width: 34px; }
+  .mini-ambient .m { background: linear-gradient(120deg, #6b5fb0, #a85a78); }
+  .mini-ambient .ls i { background: #fff; }
+  .mini-vinyl .m { border-radius: 99px; padding-right: 8px; }
+  .mini-vinyl .a { width: 14px; height: 14px; border-radius: 50%; background: var(--faint); box-shadow: inset 0 0 0 4px var(--muted); }
+  .mini-pill .m { border-radius: 99px; padding: 3px 8px 3px 3px; }
+  .mini-pill .a { width: 9px; height: 9px; border-radius: 50%; }
+  .mini-pill .ls i + i { display: none; }
+  .mini-cover .m { flex-direction: column; align-items: stretch; padding: 3px; gap: 3px; }
+  .mini-cover .a { width: 30px; height: 16px; }
+  .mini-cover .ls { gap: 2px; padding: 0 1px 1px; }
+  .mini-cover .ls i { width: 22px; height: 2px; }
+
   /* cores */
   .swatches { display: flex; gap: 8px; align-items: center; }
   .swatch {
@@ -203,6 +237,18 @@
       </div>
 
       <div class="group">
+        <div class="group-title">Estilo</div>
+        <div class="themes" role="group" aria-label="Estilo">
+            <button type="button" class="theme" data-theme="classic"><span class="mini mini-classic"><span class="m"><i class="a"></i><span class="ls"><i></i><i></i></span></span></span><span>Clássico</span></button>
+            <button type="button" class="theme" data-theme="minimal"><span class="mini mini-minimal"><span class="m"><i class="a"></i><span class="ls"><i></i><i></i></span></span></span><span>Minimal</span></button>
+            <button type="button" class="theme" data-theme="ambient"><span class="mini mini-ambient"><span class="m"><i class="a"></i><span class="ls"><i></i><i></i></span></span></span><span>Ambiente</span></button>
+            <button type="button" class="theme" data-theme="vinyl"><span class="mini mini-vinyl"><span class="m"><i class="a"></i><span class="ls"><i></i><i></i></span></span></span><span>Vinil</span></button>
+            <button type="button" class="theme" data-theme="pill"><span class="mini mini-pill"><span class="m"><i class="a"></i><span class="ls"><i></i><i></i></span></span></span><span>Pílula</span></button>
+            <button type="button" class="theme" data-theme="cover"><span class="mini mini-cover"><span class="m"><i class="a"></i><span class="ls"><i></i><i></i></span></span></span><span>Capa</span></button>
+        </div>
+      </div>
+
+      <div class="group">
         <div class="group-title">Aparência</div>
         <div class="field">
           <span>Posição</span>
@@ -265,7 +311,7 @@
 </div>
 
 <script>
-  const DEFAULTS = { channel: '', position: 'bottom-left', accent: '#8b5cf6', width: '460', label: 'Tocando agora',
+  const DEFAULTS = { channel: '', theme: 'classic', position: 'bottom-left', accent: '#8b5cf6', width: '460', label: 'Tocando agora',
                      showFor: '0', requester: true, next: true, progress: true };
   const $ = (id) => document.getElementById(id);
   const base = new URL('overlay.html', location.href).href;
@@ -277,6 +323,8 @@
   function paint() {
     for (const k of ['channel', 'width', 'label', 'showFor']) $(k).value = state[k];
     for (const k of ['requester', 'next', 'progress']) $(k).checked = state[k];
+    document.querySelectorAll('.theme').forEach((b) =>
+      b.setAttribute('aria-pressed', b.dataset.theme === state.theme));
     document.querySelectorAll('.corners button').forEach((b) =>
       b.setAttribute('aria-pressed', b.dataset.pos === state.position));
     let preset = false;
@@ -294,6 +342,8 @@
     $(k).addEventListener('input', (e) => { state[k] = e.target.value; update(); });
   for (const k of ['requester', 'next', 'progress'])
     $(k).addEventListener('change', (e) => { state[k] = e.target.checked; update(); });
+  document.querySelectorAll('.theme').forEach((b) =>
+    b.addEventListener('click', () => { state.theme = b.dataset.theme; paint(); update(); }));
   document.querySelectorAll('.corners button').forEach((b) =>
     b.addEventListener('click', () => { state.position = b.dataset.pos; paint(); update(); }));
   document.querySelectorAll('.swatch[data-color]').forEach((b) =>
@@ -303,6 +353,7 @@
   function buildParams() {
     const p = new URLSearchParams();
     p.set('channel', state.channel.trim());
+    if (state.theme !== DEFAULTS.theme) p.set('theme', state.theme);
     if (state.position !== DEFAULTS.position) p.set('position', state.position);
     if (state.accent !== DEFAULTS.accent) p.set('accent', state.accent.slice(1));
     if (state.width && state.width !== DEFAULTS.width) p.set('width', state.width);
@@ -338,7 +389,11 @@
   // mostra o card em tamanho real; só reduz se o palco for mais estreito que o card
   function fitPreview() {
     const stage = $('stage'), frame = $('preview');
-    const needed = (Number(state.width) || 460) + 40;
+    // o tema "capa" é vertical: precisa de um palco mais alto e é mais estreito
+    const cover = state.theme === 'cover';
+    stage.style.height = cover ? '380px' : '';
+    const width = Number(state.width) || 460;
+    const needed = (cover ? Math.min(width, 320) : width) + 40;
     const scale = Math.min(1, stage.clientWidth / needed);
     frame.style.width = stage.clientWidth / scale + 'px';
     frame.style.height = stage.clientHeight / scale + 'px';
