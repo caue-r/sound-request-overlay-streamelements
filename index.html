@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gerador do overlay Now Playing</title>
+<style>
+  :root { --accent: #8b5cf6; --bg: #0f0f14; --panel: #1a1a22; --text: #eee; --muted: #999; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 32px 16px; }
+  h1 { margin: 0 0 4px; }
+  p.sub { color: var(--muted); margin: 0 0 24px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+  label { display: flex; flex-direction: column; gap: 6px; font-size: 14px; color: var(--muted); }
+  label.check { flex-direction: row; align-items: center; gap: 8px; color: var(--text); }
+  input, select { padding: 9px 10px; border-radius: 8px; border: 1px solid #333; background: var(--panel); color: var(--text); font-size: 15px; }
+  input[type=color] { padding: 2px; height: 40px; }
+  .out { margin-top: 24px; display: flex; gap: 8px; }
+  .out input { flex: 1; font-family: monospace; font-size: 13px; }
+  button { padding: 9px 16px; border: 0; border-radius: 8px; background: var(--accent); color: #fff; font-weight: 600; cursor: pointer; }
+  iframe { margin-top: 20px; width: 100%; height: 220px; border: 1px dashed #333; border-radius: 10px;
+           background: repeating-conic-gradient(#1b1b1b 0 25%, #222 0 50%) 0 0 / 20px 20px; }
+  ol { color: var(--muted); line-height: 1.7; padding-left: 20px; }
+  code { background: var(--panel); padding: 1px 6px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>🎵 Now Playing para OBS</h1>
+  <p class="sub">Mostra a música que está tocando no Media Request do StreamElements.</p>
+
+  <div class="grid">
+    <label>Canal (nome no StreamElements ou ID)<input id="channel" placeholder="ex: seucanal"></label>
+    <label>Posição
+      <select id="position">
+        <option value="bottom-left">Inferior esquerda</option>
+        <option value="bottom-right">Inferior direita</option>
+        <option value="top-left">Superior esquerda</option>
+        <option value="top-right">Superior direita</option>
+      </select>
+    </label>
+    <label>Cor de destaque<input id="accent" type="color" value="#8b5cf6"></label>
+    <label>Largura do card (px)<input id="width" type="number" value="460" min="280" max="1200"></label>
+    <label>Texto do título<input id="label" value="Tocando agora"></label>
+    <label>Exibir por (s) ao trocar · 0 = sempre<input id="showFor" type="number" value="0" min="0"></label>
+    <label class="check"><input id="requester" type="checkbox" checked> Mostrar quem pediu</label>
+    <label class="check"><input id="next" type="checkbox" checked> Mostrar próxima música</label>
+    <label class="check"><input id="progress" type="checkbox" checked> Barra de progresso (estimada)</label>
+  </div>
+
+  <div class="out">
+    <input id="url" readonly>
+    <button id="copy">Copiar</button>
+  </div>
+  <iframe id="preview" title="Prévia"></iframe>
+
+  <h3>Como usar no OBS</h3>
+  <ol>
+    <li>Adicione uma fonte <b>Navegador</b> (Browser Source).</li>
+    <li><b>Desmarque</b> "Arquivo local" e cole a URL acima.</li>
+    <li>Largura <code>1920</code>, altura <code>1080</code> (ou o tamanho da sua cena).</li>
+  </ol>
+</main>
+<script>
+  const ids = ['channel', 'position', 'accent', 'width', 'label', 'showFor', 'requester', 'next', 'progress'];
+  const el = Object.fromEntries(ids.map((id) => [id, document.getElementById(id)]));
+  const base = new URL('overlay.html', location.href).href;
+
+  try { const saved = JSON.parse(localStorage.getItem('np-config') || '{}');
+        for (const [k, v] of Object.entries(saved)) if (el[k]) el[k].type === 'checkbox' ? el[k].checked = v : el[k].value = v; } catch {}
+
+  let previewTimer;
+  function update() {
+    const p = new URLSearchParams();
+    p.set('channel', el.channel.value.trim());
+    if (el.position.value !== 'bottom-left') p.set('position', el.position.value);
+    if (el.accent.value !== '#8b5cf6') p.set('accent', el.accent.value.slice(1));
+    if (el.width.value !== '460') p.set('width', el.width.value);
+    if (el.label.value !== 'Tocando agora') p.set('label', el.label.value);
+    if (Number(el.showFor.value) > 0) p.set('showFor', el.showFor.value);
+    for (const k of ['requester', 'next', 'progress']) if (!el[k].checked) p.set(k, '0');
+    const url = `${base}?${p}`;
+    document.getElementById('url').value = url;
+
+    const cfg = {}; ids.forEach((k) => cfg[k] = el[k].type === 'checkbox' ? el[k].checked : el[k].value);
+    try { localStorage.setItem('np-config', JSON.stringify(cfg)); } catch {}
+
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(() => {
+      const pv = new URLSearchParams(p); if (!el.channel.value.trim()) pv.set('demo', '1');
+      document.getElementById('preview').src = `${base}?${pv}`;
+    }, 500);
+  }
+  ids.forEach((id) => el[id].addEventListener('input', update));
+  document.getElementById('copy').onclick = () => {
+    navigator.clipboard.writeText(document.getElementById('url').value);
+    document.getElementById('copy').textContent = 'Copiado!';
+    setTimeout(() => document.getElementById('copy').textContent = 'Copiar', 1500);
+  };
+  update();
+</script>
+</body>
+</html>
