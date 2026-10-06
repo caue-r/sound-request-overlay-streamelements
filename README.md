@@ -50,4 +50,4 @@ Se o repositório estiver no GitHub Pages, a URL fica `https://<usuario>.github.
 
 - O card some sozinho quando não há música tocando.
 - A API pública não informa a posição do player nem se ele está pausado. Por isso a barra de progresso é **estimada** a partir do momento em que o overlay viu a música começar. Se ficar fora de sincronia, desligue com `progress=0`.
-- O visual pode ser ajustado nas variáveis CSS no topo do `overlay.html`.
+- O visual pode ser ajustado nas variáveis CSS no topo do `overlay.css`.
